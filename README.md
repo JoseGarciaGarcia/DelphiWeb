@@ -1,7 +1,7 @@
 # DelphiWeb
 Ficheros Curso Iniciación Programación Web en Delphi
 
-## Vídeo: 01-Creación de Página Web con Consulta a InterBase
+## Vídeo: 11-Creación de Página Web con Consulta a InterBase
 - Creación de una aplicación Web que utiliza el servidor web WebBroker
 - Crear acciones dentro del WebModule
 - Conexión a una tabla InterBase
@@ -12,7 +12,7 @@ Ficheros:
 - **WebModuleUnit1.txt**
 - **EMPLOYEE.GDB**
 
-## Vídeo: 02-Creación de Página Web con Mantenimiento de Tabla
+## Vídeo: 12-Creación de Página Web con Mantenimiento de Tabla
 - Sacar el HTML del Response y llevarlo al fichero inicio.html
 - Incluir el código para crear el mantenimiento de la tabla: código Delphi en el WebModule, y HTML y JavaScript en la página.
 
