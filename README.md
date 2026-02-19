@@ -5,7 +5,7 @@ Ficheros Curso Iniciación Programación Web en Delphi
 - Creación de una aplicación Web que utiliza el servidor web WebBroker
 - Crear acciones dentro del WebModule
 - Conexión a una tabla InterBase
-- Consulta a la base de datos con código Delphi, obteniendo un conjunto de datos en JSON
-- Visualización de los datos en una página web con etiquetas HTML
+- Consulta a la base de datos mediante código Delphi, obteniendo un conjunto de datos en JSON
+- Visualización de los datos en una página web mediante etiquetas HTML
 
 Fichero: **WebModuleUnit1.txt**
