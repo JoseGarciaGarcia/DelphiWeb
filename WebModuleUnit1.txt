@@ -1,0 +1,134 @@
+unit WebModuleUnit1;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, Web.HTTPApp, FireDAC.Stan.Intf,
+  FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf,
+  FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys,
+  FireDAC.Phys.IB, FireDAC.Phys.IBDef, FireDAC.VCLUI.Wait, FireDAC.Phys.IBBase,
+  Data.DB, FireDAC.Comp.Client;
+
+type
+  TWebModule1 = class(TWebModule)
+    FDConnection1: TFDConnection;
+    FDPhysIBDriverLink1: TFDPhysIBDriverLink;
+    procedure WebModule1DefaultHandlerAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1DatosAction(Sender: TObject; Request: TWebRequest;
+      Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1ProjectsAction(Sender: TObject; Request: TWebRequest;
+      Response: TWebResponse; var Handled: Boolean);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  WebModuleClass: TComponentClass = TWebModule1;
+
+implementation
+
+uses
+  FireDAC.DApt,
+  System.JSON;
+
+{%CLASSGROUP 'Vcl.Controls.TControl'}
+
+{$R *.dfm}
+
+procedure TWebModule1.WebModule1DatosAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+begin
+Response.ContentType := 'text/html; charset=utf-8';
+  Response.Content :=
+    '<!DOCTYPE html>' +
+    '<html>' +
+    '<head>' +
+    '<meta charset="utf-8">' +
+    '<title>Rejilla Project</title>' +
+    '</head>' +
+    '<body>' +
+    '  <h1>Mantenimiento PROJECT</h1>' +
+    '  <table border="1" id="tbl"></table>' +
+    '  <script>' +
+    '    fetch("/projects")' +
+    '      .then(r => r.json())' +
+    '      .then(data => {' +
+    '        let html = "<tr><th>ID</th><th>Nombre</th><th>Producto</th></tr>";' +
+    '        data.forEach(row => {' +
+    '          html += "<tr>" +' +
+    '                    "<td>"+row.PROJ_ID+"</td>" +' +
+    '                    "<td>"+row.PROJ_NAME+"</td>" +' +
+    '                    "<td>"+row.PRODUCT+"</td>" +' +
+    '                  "</tr>";' +
+    '        });' +
+    '        document.getElementById("tbl").innerHTML = html;' +
+    '      });' +
+    '  </script>' +
+    '</body>' +
+    '</html>';
+
+  Handled := True;
+end;
+
+procedure TWebModule1.WebModule1DefaultHandlerAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+begin
+  Response.Content :=
+    '<html>' +
+    '<head><title>Web Server Application</title></head>' +
+    '<body><h1>Web Server Application Default</h1>' +
+    'PathInfo recibido: ' + Request.PathInfo +
+    '<br> Método: ' + Request.Method +
+    '</body></html>';
+end;
+
+procedure TWebModule1.WebModule1ProjectsAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  Q: TFDQuery;    // Objeto para realizar la consulta SQL
+  JA: TJSONArray; // Arreglo que contendrá la lista de proyectos en formato JSON
+  JO: TJSONObject;  // Objeto individual para cada proyecto
+begin
+   // Inicialización de los objetos de base de datos y JSON
+  Q := TFDQuery.Create(nil);
+  JA := TJSONArray.Create;
+  try
+    // Configuración de la conexión y definición de la consulta SQL
+    Q.Connection := FDConnection1;
+    Q.SQL.Text :=
+      'SELECT PROJ_ID, PROJ_NAME, PROJ_DESC, TEAM_LEADER, PRODUCT FROM PROJECT';
+    Q.Open;  // Ejecución de la consulta
+
+    // Recorrido de los registros obtenidos de la base de datos
+    while not Q.Eof do
+    begin
+      // Creamos un objeto JSON por cada fila de la tabla
+      JO := TJSONObject.Create;
+      JO.AddPair('PROJ_ID', Q.FieldByName('PROJ_ID').AsString);
+      JO.AddPair('PROJ_NAME', Q.FieldByName('PROJ_NAME').AsString);
+      JO.AddPair('PROJ_DESC', Q.FieldByName('PROJ_DESC').AsString);
+      JO.AddPair('TEAM_LEADER', Q.FieldByName('TEAM_LEADER').AsString);
+      JO.AddPair('PRODUCT', Q.FieldByName('PRODUCT').AsString);
+      // Agregamos el objeto al arreglo principal
+      JA.AddElement(JO);
+      Q.Next;
+    end;
+
+    // Configuración de la respuesta HTTP
+    Response.ContentType := 'application/json; charset=utf-8';
+    Response.Content := JA.ToJSON;
+
+  finally
+    // Liberación de memoria de los objetos locales para evitar fugas (Memory Leaks)
+    JA.Free;
+    Q.Free;
+  end;
+
+  // Indicamos que la petición ha sido gestionada correctamente
+  Handled := True;
+end;
+
+end.
