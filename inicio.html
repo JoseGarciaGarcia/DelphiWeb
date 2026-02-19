@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mantenimiento PROJECT (InterBase)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    table{border-collapse:collapse;width:100%;margin-top:20px}
+    th,td{border:1px solid #ccc;padding:6px}
+    th{background:#eee}
+    #formDiv{display:none;border:1px solid #aaa;padding:10px;margin-top:20px;border-radius:6px}
+    input,textarea{width:100%;margin:4px 0;padding:6px}
+    .actions{display:flex;gap:8px}
+    button{padding:6px 10px;cursor:pointer}
+    .primary{background:#0d6efd;color:#fff;border:1px solid #0d6efd}
+  </style>
+</head>
+<body>
+
+<h1>PROJECT (InterBase · Employee)</h1>
+<div class="actions">
+  <button class="primary" onclick="nuevo()">Nuevo</button>
+  <span id="status"></span>
+</div>
+
+<div id="formDiv">
+  <h3 id="formTitle">Nuevo Proyecto</h3>
+  <label>ID *</label><input id="PROJ_ID" maxlength="20" />
+  <label>Nombre *</label><input id="PROJ_NAME" maxlength="60" />
+  <label>Descripción</label><textarea id="PROJ_DESC"></textarea>
+  <label>Líder</label><input id="TEAM_LEADER" maxlength="20" />
+  <label>Producto</label><input id="PRODUCT" maxlength="40" />
+  <div class="actions">
+    <button class="primary" onclick="guardar()">Guardar</button>
+    <button onclick="cancelar()">Cancelar</button>
+  </div>
+</div>
+
+<table id="tbl"></table>
+
+<script>
+const API = "/api/projects";
+let editId = null;
+
+function setStatus(msg){ document.getElementById("status").textContent = msg || ""; }
+
+async function cargar(){
+  setStatus("Cargando...");
+  const r = await fetch(API);
+  if(!r.ok){ setStatus("Error al cargar ("+r.status+")"); return; }
+  const data = await r.json();
+
+  let html = "<tr><th>ID</th><th>Nombre</th><th>Producto</th><th>Acciones</th></tr>";
+  data.forEach(function(r){
+html += "<tr>"
+      + "<td>"+r.PROJ_ID+"</td>"
+      + "<td>"+r.PROJ_NAME+"</td>"
+      + "<td>"+r.PRODUCT+"</td>"
+      + "<td>"
+      +   "<button onclick='editar(\""+r.PROJ_ID+"\")'>Editar</button> "
+      +   "<button onclick='borrar(\""+r.PROJ_ID+"\")'>Borrar</button>"
+      + "</td>"
+      + "</tr>";
+
+  });
+  document.getElementById("tbl").innerHTML = html;
+  setStatus(data.length+" registro(s)");
+}
+
+function nuevo(){
+  editId = null;
+  document.getElementById("formTitle").innerText = "Nuevo Proyecto";
+  document.getElementById("formDiv").style.display = "block";
+  PROJ_ID.value=""; PROJ_NAME.value=""; PROJ_DESC.value=""; TEAM_LEADER.value=""; PRODUCT.value="";
+}
+
+function cancelar(){ document.getElementById("formDiv").style.display = "none"; }
+
+async function editar(id){
+  // Puedes obtener el registro desde GET /api/projects/{id}
+  const r = await fetch(API + "/" + encodeURIComponent(id));
+  if(!r.ok){ alert("No encontrado"); return; }
+  const rec = await r.json();
+  editId = rec.PROJ_ID;
+  document.getElementById("formTitle").innerText = "Editar Proyecto";
+  document.getElementById("formDiv").style.display = "block";
+  PROJ_ID.value = rec.PROJ_ID||"";
+  PROJ_NAME.value = rec.PROJ_NAME||"";
+  PROJ_DESC.value = rec.PROJ_DESC||"";
+  TEAM_LEADER.value = rec.TEAM_LEADER||"";
+  PRODUCT.value = rec.PRODUCT||"";
+  // No permitir cambiar la PK al editar (opcional)
+  PROJ_ID.readOnly = true;
+}
+
+async function guardar(){
+  const body = {
+    PROJ_ID: PROJ_ID.value.trim(),
+    PROJ_NAME: PROJ_NAME.value.trim(),
+    PROJ_DESC: PROJ_DESC.value,
+    TEAM_LEADER: TEAM_LEADER.value.trim(),
+    PRODUCT: PRODUCT.value.trim()
+  };
+  if(!body.PROJ_ID || !body.PROJ_NAME){
+    alert("PROJ_ID y PROJ_NAME son obligatorios");
+    return;
+  }
+
+  try{
+    let r;
+    if(editId){
+      r = await fetch(API + "/" + encodeURIComponent(editId), {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+      });
+    } else {
+      r = await fetch(API, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+      });
+    }
+    if(!r.ok){
+      const txt = await r.text();
+      alert("Error ("+r.status+"): " + txt);
+      return;
+    }
+    cancelar();
+    PROJ_ID.readOnly = false;
+    await cargar();
+  } catch(e){
+    alert(e);
+  }
+}
+
+async function borrar(id){
+  if(!confirm("¿Borrar " + id + "?")) return;
+  const r = await fetch(API + "/" + encodeURIComponent(id), { method: "DELETE" });
+  if(!r.ok){
+    const txt = await r.text();
+    alert("Error ("+r.status+"): " + txt);
+    return;
+  }
+  await cargar();
+  // Si estabas editando ese mismo id, cierra el form
+  if(editId === id){ cancelar(); PROJ_ID.readOnly = false; }
+}
+
+cargar();
+</script>
+
+</body>
+</html>
