@@ -11,3 +11,11 @@ Ficheros Curso Iniciación Programación Web en Delphi
 Ficheros: 
 - **WebModuleUnit1.txt**
 - **EMPLOYEE.GDB**
+
+## Vídeo: 02-Creación de Página Web con Mantenimiento de Tabla
+- Sacar el HTML del Response y llevarlo al fichero inicio.html
+- Incluir el código para crear el mantenimiento de la tabla: código Delphi en el WebModule, y HTML y JavaScript en la página.
+
+Ficheros: 
+- **WebModuleUnit1-B.txt**
+- **inicio.html**
