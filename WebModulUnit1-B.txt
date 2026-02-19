@@ -1,0 +1,280 @@
+  FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf,
+  FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys,
+  FireDAC.Phys.IB, FireDAC.Phys.IBDef, FireDAC.VCLUI.Wait, FireDAC.Phys.IBBase,
+  Data.DB, FireDAC.Comp.Client;
+
+type
+  TWebModule1 = class(TWebModule)
+    FDConnection1: TFDConnection;
+    FDPhysIBDriverLink1: TFDPhysIBDriverLink;
+    procedure WebModule1DefaultHandlerAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1InicioAction(Sender: TObject; Request: TWebRequest;
+      Response: TWebResponse; var Handled: Boolean);
+    procedure WebModule1ProjectsActionAction(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+    procedure WebModuleBeforeDispatch(Sender: TObject; Request: TWebRequest;
+      Response: TWebResponse; var Handled: Boolean);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  WebModuleClass: TComponentClass = TWebModule1;
+
+implementation
+
+uses
+  System.JSON,
+  FireDAC.Comp.DataSet,
+  FireDAC.DApt,       // ← NECESARIO para SELECT/TFDQuery.Open
+  System.IOUtils;     // ← Para leer el HTML externo
+
+
+{%CLASSGROUP 'Vcl.Controls.TControl'}
+
+{$R *.dfm}
+
+procedure TWebModule1.WebModule1DefaultHandlerAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+begin
+  Response.Content :=
+    '<html>' +
+    '<head><title>Web Server Application Default</title></head>' +
+    '<body>Web Server Application Prueba</body>' +
+    '</html>';
+end;
+
+
+procedure TWebModule1.WebModule1InicioAction(Sender: TObject; Request: TWebRequest;
+  Response: TWebResponse; var Handled: Boolean);
+var
+  FilePath: string;
+begin
+  FilePath := TPath.Combine(TPath.GetDirectoryName(ParamStr(0)), 'wwwroot\inicio.html');
+  if not TFile.Exists(FilePath) then
+  begin
+    Response.StatusCode := 404;
+    Response.ContentType := 'text/plain; charset=utf-8';
+    Response.Content := 'No se encontró wwwroot\inicio.html';
+    Handled := True;
+    Exit;
+  end;
+
+  Response.ContentType := 'text/html; charset=utf-8';
+  Response.Content := TFile.ReadAllText(FilePath, TEncoding.UTF8);
+  Handled := True;
+end;
+
+procedure TWebModule1.WebModule1ProjectsActionAction(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  Q: TFDQuery;
+  JO: TJSONObject;
+  JA: TJSONArray;
+  Id: string;
+  Body: TJSONObject;
+
+  function JsonStr(const V: string): string;
+  begin
+    // Escapa el contenido básico para mensajes de error (sencillo)
+    Result := StringReplace(V, '"', '\"', [rfReplaceAll]);
+  end;
+
+begin
+  Response.ContentType := 'application/json; charset=utf-8';
+
+  // Extraer /api/projects[/ID]
+  Id := Request.PathInfo.Substring(Length('/api/projects'));
+  Id := Id.Trim(['/']);
+
+  try
+    // === GET LISTAR ( /api/projects ) ===
+    if (Request.Method = 'GET') and (Id = '') then
+    begin
+      Q := TFDQuery.Create(nil);
+      JA := TJSONArray.Create;
+      try
+        Q.Connection := FDConnection1;
+        Q.SQL.Text :=
+          'SELECT PROJ_ID, PROJ_NAME, PROJ_DESC, TEAM_LEADER, PRODUCT ' +
+          'FROM PROJECT ORDER BY PROJ_ID';
+        Q.Open;
+
+        while not Q.Eof do
+        begin
+          JO := TJSONObject.Create;
+          JO.AddPair('PROJ_ID', Q.FieldByName('PROJ_ID').AsString);
+          JO.AddPair('PROJ_NAME', Q.FieldByName('PROJ_NAME').AsString);
+          JO.AddPair('PROJ_DESC', Q.FieldByName('PROJ_DESC').AsString);
+          JO.AddPair('TEAM_LEADER', Q.FieldByName('TEAM_LEADER').AsString);
+          JO.AddPair('PRODUCT', Q.FieldByName('PRODUCT').AsString);
+          JA.AddElement(JO);
+          Q.Next;
+        end;
+
+        Response.Content := JA.ToJSON;
+        Handled := True;
+        Exit;
+      finally
+        JA.Free;
+        Q.Free;
+      end;
+    end;
+
+    // === GET UNO ( /api/projects/{ID} ) ===
+    if (Request.Method = 'GET') and (Id <> '') then
+    begin
+      Q := TFDQuery.Create(nil);
+      JO := TJSONObject.Create;
+      try
+        Q.Connection := FDConnection1;
+        Q.SQL.Text :=
+          'SELECT PROJ_ID, PROJ_NAME, PROJ_DESC, TEAM_LEADER, PRODUCT ' +
+          'FROM PROJECT WHERE PROJ_ID = :ID';
+        Q.ParamByName('ID').AsString := Id;
+        Q.Open;
+
+        if not Q.Eof then
+        begin
+          JO.AddPair('PROJ_ID', Q.FieldByName('PROJ_ID').AsString);
+          JO.AddPair('PROJ_NAME', Q.FieldByName('PROJ_NAME').AsString);
+          JO.AddPair('PROJ_DESC', Q.FieldByName('PROJ_DESC').AsString);
+          JO.AddPair('TEAM_LEADER', Q.FieldByName('TEAM_LEADER').AsString);
+          JO.AddPair('PRODUCT', Q.FieldByName('PRODUCT').AsString);
+          Response.Content := JO.ToJSON;
+        end
+        else
+        begin
+          Response.StatusCode := 404;
+          Response.Content := '{"error":"No encontrado"}';
+        end;
+
+        Handled := True;
+        Exit;
+      finally
+        JO.Free;
+        Q.Free;
+      end;
+    end;
+
+    // Leer body JSON en POST/PUT
+    if (Request.Method = 'POST') or (Request.Method = 'PUT') then
+    begin
+      Body := TJSONObject(TJSONObject.ParseJSONValue(Request.Content));
+      if Body = nil then
+      begin
+        Response.StatusCode := 400;
+        Response.Content := '{"error":"JSON inválido"}';
+        Handled := True;
+        Exit;
+      end;
+    end;
+
+    // === POST INSERTAR ( /api/projects ) ===
+    if (Request.Method = 'POST') and (Id = '') then
+    begin
+      Q := TFDQuery.Create(nil);
+      try
+        Q.Connection := FDConnection1;
+        Q.SQL.Text :=
+          'INSERT INTO PROJECT (PROJ_ID, PROJ_NAME, PROJ_DESC, TEAM_LEADER, PRODUCT) ' +
+          'VALUES (:ID, :NAME, :DESC, :LEADER, :PROD)';
+        Q.ParamByName('ID').AsString     := Body.GetValue<string>('PROJ_ID', '');
+        Q.ParamByName('NAME').AsString   := Body.GetValue<string>('PROJ_NAME', '');
+        Q.ParamByName('DESC').AsString   := Body.GetValue<string>('PROJ_DESC', '');
+        Q.ParamByName('LEADER').AsString := Body.GetValue<string>('TEAM_LEADER', '');
+        Q.ParamByName('PROD').AsString   := Body.GetValue<string>('PRODUCT', '');
+        Q.ExecSQL;
+
+        Response.StatusCode := 201;
+        Response.Content := '{"ok":true}';
+        Handled := True;
+        Exit;
+      finally
+        Body.Free;
+        Q.Free;
+      end;
+    end;
+
+    // === PUT ACTUALIZAR ( /api/projects/{ID} ) ===
+    if (Request.Method = 'PUT') and (Id <> '') then
+    begin
+      Q := TFDQuery.Create(nil);
+      try
+        Q.Connection := FDConnection1;
+        Q.SQL.Text :=
+          'UPDATE PROJECT SET ' +
+          '  PROJ_NAME = :NAME, ' +
+          '  PROJ_DESC = :DESC, ' +
+          '  TEAM_LEADER = :LEADER, ' +
+          '  PRODUCT   = :PROD ' +
+          'WHERE PROJ_ID = :ID';
+        Q.ParamByName('ID').AsString     := Id;
+        Q.ParamByName('NAME').AsString   := Body.GetValue<string>('PROJ_NAME', '');
+        Q.ParamByName('DESC').AsString   := Body.GetValue<string>('PROJ_DESC', '');
+        Q.ParamByName('LEADER').AsString := Body.GetValue<string>('TEAM_LEADER', '');
+        Q.ParamByName('PROD').AsString   := Body.GetValue<string>('PRODUCT', '');
+        Q.ExecSQL;
+
+        Response.Content := '{"ok":true}';
+        Handled := True;
+        Exit;
+      finally
+        Body.Free;
+        Q.Free;
+      end;
+    end;
+
+    // === DELETE BORRAR ( /api/projects/{ID} ) ===
+    if (Request.Method = 'DELETE') and (Id <> '') then
+    begin
+      Q := TFDQuery.Create(nil);
+      try
+        Q.Connection := FDConnection1;
+        Q.SQL.Text := 'DELETE FROM PROJECT WHERE PROJ_ID = :ID';
+        Q.ParamByName('ID').AsString := Id;
+        Q.ExecSQL;
+
+        Response.Content := '{"ok":true}';
+        Handled := True;
+        Exit;
+      finally
+        Q.Free;
+      end;
+    end;
+
+    // Método no soportado / o mal path
+    Response.StatusCode := 405;
+    Response.Content := '{"error":"Método no soportado"}';
+    Handled := True;
+
+  except
+    on E: Exception do
+    begin
+      Response.StatusCode := 500;
+      Response.Content := Format('{"error":"%s"}', [JsonStr(E.Message)]);
+      Handled := True;
+    end;
+  end;
+end;
+
+procedure TWebModule1.WebModuleBeforeDispatch(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+
+var
+  p: string;
+begin
+  // Redirige TODAS las rutas que empiezan por /api/projects a tu manejador CRUD
+  p := Request.PathInfo.ToLower;
+  if p.StartsWith('/api/projects') then
+  begin
+    WebModule1ProjectsActionAction(Sender, Request, Response, Handled);
+    Handled := True;
+  end;
+end;
+
+
+end.
