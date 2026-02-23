@@ -20,7 +20,7 @@ Ficheros:
 - **WebModuleUnit1-B.txt**
 - **inicio.html**
 
-## Vídeo: 132-HTMX
+## Vídeo: 13-HTMX
 - Introducción a HTMX
 - Dejar solo una página raíz. Costruir un Enrutador.
 - Simplificar inicio.html
