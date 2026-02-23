@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>PROJECT CRUD con HTMX</title>
+
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+  <style>
+    body{font-family:Arial;margin:20px}
+    table{border-collapse:collapse;width:100%;margin-top:20px}
+    th,td{border:1px solid #ccc;padding:6px}
+    th{background:#eee}
+    #modal{border:1px solid #888;padding:12px;margin-top:18px;min-height:1px}
+  </style>
+</head>
+
+<body>
+
+<h1>PROJECT (InterBase + HTMX)</h1>
+
+<button hx-get="/projects/form/new"
+        hx-target="#modal"
+        hx-swap="innerHTML">
+  Nuevo
+</button>
+
+<div id="modal"></div>
+
+<!-- Cargar tabla SOLO una vez -->
+<div hx-get="/projects/list"
+     hx-trigger="load"
+     hx-target="#list"
+     hx-swap="innerHTML">
+</div>
+
+<div id="list"></div>
+
+</body>
+</html>
