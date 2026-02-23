@@ -19,3 +19,19 @@ Ficheros:
 Ficheros: 
 - **WebModuleUnit1-B.txt**
 - **inicio.html**
+
+## Vídeo: 132-HTMX
+- Introducción a HTMX
+- Dejar solo una página raíz. Costruir un Enrutador.
+- Simplificar inicio.html
+
+Documentación:
+Antonio Zapater: 
+- Demos: https://github.com/Embarcadero/WebStencilsDemos
+- Libro WebStencils castellano: https://www.danysoft.com/htmx-y-webstencils-desarrollo-web-rapido-con-rad-studio/ 
+- Nueva versión WebStencils (inglés), y otros: https://delphi-books.com/en/Antonio-Zapater.html 
+Danysoft Vídeos, con Antonio Zapater, Emilio Pérez (MVP), Jorge Cangas (MVP): https://www.youtube.com/@Danysoft/ 
+
+Ficheros: 
+- **WebModuleUnit1-C.txt**
+- **inicio-B.html**. Renombrar dentro del wwwroot a incio.html.
