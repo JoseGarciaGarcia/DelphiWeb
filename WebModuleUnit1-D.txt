@@ -1,0 +1,260 @@
+unit WebModuleUnit1;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.IOUtils,
+  Web.HTTPApp,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Error,
+  FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
+  FireDAC.Stan.Pool, FireDAC.Stan.Async,
+  FireDAC.Phys, FireDAC.Phys.IB, FireDAC.Phys.IBDef,
+  FireDAC.Phys.IBBase, FireDAC.VCLUI.Wait,
+  Data.DB, FireDAC.Comp.Client, FireDAC.Comp.DataSet, FireDAC.DApt;
+
+type
+  TWebModule1 = class(TWebModule)
+    FDConnection1: TFDConnection;
+    FDPhysIBDriverLink1: TFDPhysIBDriverLink;
+    procedure WebModuleCreate(Sender: TObject);
+    procedure WebModuleBeforeDispatch(Sender: TObject;
+      Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+  private
+    function RenderProjectList: string;
+    procedure SaveProject(Request: TWebRequest);
+    procedure DeleteProject(const AID: string);
+  end;
+
+var
+  WebModuleClass: TComponentClass = TWebModule1;
+
+implementation
+
+{$R *.dfm}
+
+{ ============================================
+  INICIALIZACIÓN DEL MÓDULO
+============================================ }
+procedure TWebModule1.WebModuleCreate(Sender: TObject);
+begin
+  // FORZAR CREDENCIALES SIN LOGINPROMPT
+  FDConnection1.LoginPrompt := False;
+
+  FDConnection1.Params.Values['User_Name'] := 'SYSDBA';
+  FDConnection1.Params.Values['Password'] := 'masterkey';
+
+  // SI USAS EMPLOYEE.GDB, SUELE USAR SYSDBA/MASTERKEY
+  FDConnection1.Connected := True;
+end;
+
+{ ============================================
+  ROUTER CENTRAL HTMX
+============================================ }
+
+procedure TWebModule1.WebModuleBeforeDispatch(Sender: TObject;
+  Request: TWebRequest; Response: TWebResponse; var Handled: Boolean);
+var
+  FilePath: string;
+  action, id: string;
+begin
+  // -------------------------------------------
+  // ENDPOINT DE DIAGNÓSTICO --> /ping
+  // -------------------------------------------
+  if SameText(Request.PathInfo, '/ping') then
+  begin
+    Response.ContentType := 'text/plain; charset=utf-8';
+    Response.Content := 'pong';
+    Handled := True;
+    Exit;
+  end;
+
+  // -------------------------------------------
+  // RUTA /projects  (CRUD HTMX)
+  // -------------------------------------------
+  if SameText(Request.PathInfo, '/projects') then
+  begin
+    Response.ContentType := 'text/html; charset=utf-8';
+
+    if SameText(Request.Method, 'GET') then
+    begin
+      Response.Content := RenderProjectList;
+      Handled := True;
+      Exit;
+    end;
+
+    if SameText(Request.Method, 'POST') then
+    begin
+      action := Request.ContentFields.Values['action'];
+
+      if action = 'delete' then
+      begin
+        id := Request.ContentFields.Values['PROJ_ID'];
+        DeleteProject(id);
+      end
+      else
+        SaveProject(Request);
+
+      Response.Content := RenderProjectList;
+      Handled := True;
+      Exit;
+    end;
+  end;
+
+  // -------------------------------------------
+  // RUTA /  -> datos.html
+  // -------------------------------------------
+  if (Request.PathInfo = '') or (Request.PathInfo = '/') then
+  begin
+    FilePath := TPath.Combine(
+      TPath.GetDirectoryName(ParamStr(0)),
+      'wwwroot\datos.html');
+
+    if not FileExists(FilePath) then
+    begin
+      Response.StatusCode := 404;
+      Response.Content := 'datos.html no encontrado en: ' + FilePath;
+      Handled := True;
+      Exit;
+    end;
+
+    Response.ContentType := 'text/html; charset=utf-8';
+    Response.Content := TFile.ReadAllText(FilePath, TEncoding.UTF8);
+    Handled := True;
+    Exit;
+  end;
+end;
+
+
+{ ============================================
+  LISTA DE PROYECTOS  (HTML)
+============================================ }
+function TWebModule1.RenderProjectList: string;
+var
+  Q: TFDQuery;
+  sb: TStringBuilder;
+  id, name_, prod_: string;
+begin
+  sb := TStringBuilder.Create;
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FDConnection1;
+    Q.SQL.Text :=
+      'SELECT PROJ_ID, PROJ_NAME, PRODUCT FROM PROJECT ORDER BY PROJ_ID';
+
+    try
+      Q.Open;
+    except
+      on E: Exception do
+      begin
+        Result :=
+          '<div class="alert alert-danger mt-3" role="alert">' +
+          'ERROR SQL: ' + E.Message + '</div>';
+        Exit;
+      end;
+    end;
+
+    sb.Append('<div class="table-responsive mt-2">');
+    sb.Append('<table class="table table-striped table-hover align-middle">');
+    sb.Append('<thead class="table-light">');
+    sb.Append('<tr><th style="width:120px">ID</th><th>Nombre</th><th>Producto</th><th class="text-end" style="width:180px">Acciones</th></tr>');
+    sb.Append('</thead><tbody>');
+
+    while not Q.Eof do
+    begin
+      id    := Q.FieldByName('PROJ_ID').AsString;
+      name_ := Q.FieldByName('PROJ_NAME').AsString;
+      prod_ := Q.FieldByName('PRODUCT').AsString;
+
+      sb.Append('<tr>');
+      sb.Append('<td><code>').Append(id).Append('</code></td>');
+      sb.Append('<td>').Append(name_).Append('</td>');
+      sb.Append('<td>').Append(prod_).Append('</td>');
+
+      sb.Append('<td class="text-end">');
+
+      // Botón Editar -> rellena el formulario superior
+      sb.Append('<button class="btn btn-sm btn-outline-secondary me-2" ');
+      sb.Append('onclick="edit(''').Append(id).Append(''',''')
+        .Append(StringReplace(name_, '''', '''''', [rfReplaceAll])) // escapa comillas
+        .Append(''',''')
+        .Append(StringReplace(prod_, '''', '''''', [rfReplaceAll]))
+        .Append(''')"');
+      sb.Append('>');
+      sb.Append('<i class="bi bi-pencil"></i> Editar</button>');
+
+      // Botón Borrar -> HTMX POST /projects con action=delete
+      sb.Append('<button class="btn btn-sm btn-danger" ');
+      sb.Append('hx-post="/projects" ');
+      sb.Append('hx-vals=''{"action":"delete","PROJ_ID":"').Append(id).Append('"}'' ');
+      sb.Append('hx-target="#list" ');
+      sb.Append('hx-swap="innerHTML" ');
+      sb.Append('hx-confirm="¿Seguro que deseas borrar ').Append(id).Append('?"');
+      sb.Append('>');
+      sb.Append('<i class="bi bi-trash"></i> Borrar</button>');
+
+      sb.Append('</td></tr>');
+
+      Q.Next;
+    end;
+
+    sb.Append('</tbody></table></div>');
+
+    Result := sb.ToString;
+  finally
+    Q.Free;
+    sb.Free;
+  end;
+end;
+
+{ ============================================
+  GUARDAR (UPDATE → INSERT SI NO EXISTE)
+============================================ }
+procedure TWebModule1.SaveProject(Request: TWebRequest);
+var
+  Q: TFDQuery;
+begin
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FDConnection1;
+
+    Q.SQL.Text :=
+      'UPDATE PROJECT SET PROJ_NAME=:N, PRODUCT=:P WHERE PROJ_ID=:ID';
+
+    Q.ParamByName('ID').AsString := Request.ContentFields.Values['PROJ_ID'];
+    Q.ParamByName('N').AsString := Request.ContentFields.Values['PROJ_NAME'];
+    Q.ParamByName('P').AsString := Request.ContentFields.Values['PRODUCT'];
+
+    Q.ExecSQL;
+
+    if Q.RowsAffected = 0 then
+    begin
+      Q.SQL.Text :=
+        'INSERT INTO PROJECT (PROJ_ID, PROJ_NAME, PRODUCT) ' +
+        'VALUES (:ID, :N, :P)';
+      Q.ExecSQL;
+    end;
+
+  finally
+    Q.Free;
+  end;
+end;
+
+{ ============================================
+  BORRAR
+============================================ }
+procedure TWebModule1.DeleteProject(const AID: string);
+var
+  Q: TFDQuery;
+begin
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FDConnection1;
+    Q.SQL.Text := 'DELETE FROM PROJECT WHERE PROJ_ID=:ID';
+    Q.ParamByName('ID').AsString := AID;
+    Q.ExecSQL;
+  finally
+    Q.Free;
+  end;
+end;
+
+end.
