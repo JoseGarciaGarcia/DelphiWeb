@@ -36,3 +36,15 @@ Danysoft Vídeos, con Antonio Zapater, Emilio Pérez (MVP), Jorge Cangas (MVP): 
 Ficheros: 
 - **WebModuleUnit1-C.txt**
 - **inicio-B.html**. Renombrar dentro del wwwroot a incio.html.
+
+## Vídeo: 14-HTMX + Bootstrap
+- Añadimos Bootstrap para crear de forma sencilla un diseño más profesional
+- Eliminamos todas las acciones del WebModule y simplificamos el código
+- Creamos un mini-framework con WebBroker con tres capas:
+	- Vista: RenderProjectList devuelve HTML
+	- Controlador: WebModuleBeforeDispatch
+  - Modelo: FireDAC query sobre tabla PROJECT
+
+Ficheros: 
+- **WebModuleUnit1-D.txt**
+- **datos.html**
