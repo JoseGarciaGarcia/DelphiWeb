@@ -45,6 +45,13 @@ Ficheros:
 	- Controlador: WebModuleBeforeDispatch
   - Modelo: FireDAC query sobre tabla PROJECT
 
+ ## Vídeo: 15-WebFileDispatcher + FDQuery
+- Añadimos TWebFileDispatcher
+	- Permite servir contenido estático (HTML, JS, CSS, imágenes) directamente desde una carpeta (wwwroot) sin necesidad de escribir código en el WebModule. Simplifica la arquitectura, evita errores de codificación, organiza los recursos y mantiene el WebModule dedicado exclusivamente a lógica de negocio.
+- Añadimos TFDQuery
+	- Centraliza el acceso a datos. Se reutiliza el mismo query dentro de cada petición del WebModule, reduciendo duplicación de SQL y simplificando operaciones CRUD. Más robustez, menos código, más claridad y mejor seguridad gracias al uso de parámetros.
+ - Añadimos Bootstrap Icons
+	- Activa el sistema de iconos usado por el HTML. Mejora la experiencia del usuario, clarifica las acciones de los botones y hace la interfaz considerablemente más moderna sin esfuerzo adicional.
+
 Ficheros: 
-- **WebModuleUnit1-D.txt**
-- **datos.html**
+- **TWebFileDispatcher.zip**
