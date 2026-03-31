@@ -61,7 +61,7 @@ Ficheros:
 - Demos y documentación de Antonio Zapater, en la página de Github de Embarcadero
 - Explicación de una Demo con WebBroker, FireDAC y WebStencils.
 
-Documentación:
+Documentación.
 Antonio Zapater: 
 - Demos: https://github.com/Embarcadero/WebStencilsDemos
 - Libro WebStencils castellano: https://www.danysoft.com/htmx-y-webstencils-desarrollo-web-rapido-con-rad-studio/ 
