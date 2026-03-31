@@ -55,3 +55,16 @@ Ficheros:
 
 Ficheros: 
 - **TWebFileDispatcher.zip**
+
+## Vídeo: 16-WebStencils
+- Introducción y caracterísitcas principales de WebStencils
+- Demos y documentación de Antonio Zapater, en la página de Github de Embarcadero
+- Explicación de una Demo con WebBroker, FireDAC y WebStencils.
+
+Documentación:
+Antonio Zapater: 
+- Demos: https://github.com/Embarcadero/WebStencilsDemos
+- Libro WebStencils castellano: https://www.danysoft.com/htmx-y-webstencils-desarrollo-web-rapido-con-rad-studio/ 
+- Nueva versión WebStencils (inglés), y otros: https://delphi-books.com/en/Antonio-Zapater.html
+Danysoft:
+- Vídeos, con Antonio Zapater, Emilio Pérez (MVP), Jorge Cangas (MVP): https://www.youtube.com/@Danysoft/ 
